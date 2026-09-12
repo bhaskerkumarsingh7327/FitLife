@@ -24,7 +24,7 @@ const Profile = () => {
     const fetchProfileData = async () => {
       try {
         const safeUserId = encodeURIComponent(userId);
-        const response = await fetch(`http://localhost:5001/api/workouts/${safeUserId}`);
+       const response = await fetch(`${process.env.REACT_APP_API_URL}/api/workouts/${safeUserId}`);
         if (response.ok) {
           const data = await response.json();
           setWorkoutData(data);

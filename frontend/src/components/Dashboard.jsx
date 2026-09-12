@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './Navbar.jsx';
 import ProgressTracker from './ProgressTracker.jsx';
 import WorkoutList from './WorkoutList.jsx';
@@ -11,14 +11,15 @@ const Dashboard = () => {
   const isFemale = localStorage.getItem('userGender') === 'Female';
   const themeText = isFemale ? 'text-pink-500' : 'text-green-500';
 
-  const fetchWorkoutPlan = async () => {
+  const fetchWorkoutPlan = useCallback(async () => {
     try {
       const safeUserId = encodeURIComponent(userId);
       const gender = localStorage.getItem('userGender') || 'Male';
       const goal = localStorage.getItem('userGoal') || 'General Fitness';
       const level = localStorage.getItem('userLevel') || 'Beginner';
       
-      const response = await fetch(`http://localhost:5001/api/workouts/${safeUserId}?gender=${gender}&goal=${goal}&level=${level}`);
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/workouts/${safeUserId}?gender=${gender}&goal=${goal}&level=${level}`);
+      
       if (response.ok) {
         const data = await response.json();
         setWorkoutData(data);
@@ -35,6 +36,7 @@ const Dashboard = () => {
       const savedTotal = Number(localStorage.getItem('localTotal')) || savedCompleted;
       const savedStreak = Number(localStorage.getItem('localStreak')) || savedCompleted;
       const savedWeek = Number(localStorage.getItem('localWeek')) || 1;
+
       setWorkoutData({
         userId: userId,
         completedWorkouts: savedCompleted,
@@ -61,25 +63,31 @@ const Dashboard = () => {
         ]
       });
     }
-  };
+  }, [userId, isFemale]);
 
   useEffect(() => {
     fetchWorkoutPlan();
-  }, []);
+  }, [fetchWorkoutPlan]);
 
   const handleResetWeek = async () => {
     try {
       const safeUserId = encodeURIComponent(userId);
-      const response = await fetch(`http://localhost:5001/api/workouts/${safeUserId}/reset`, { 
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/workouts/${safeUserId}/reset`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' }
       });
+
       if (response.ok) {
         const data = await response.json();
         setWorkoutData(prev => {
           localStorage.setItem('localCompleted', 0);
           localStorage.setItem('localWeek', data.currentWeekNumber);
-          return { ...prev, completedWorkouts: 0, currentWeekNumber: data.currentWeekNumber, weeklySchedule: data.weeklySchedule };
+          return {
+            ...prev,
+            completedWorkouts: 0,
+            currentWeekNumber: data.currentWeekNumber,
+            weeklySchedule: data.weeklySchedule
+          };
         });
       }
     } catch (error) {
@@ -87,7 +95,11 @@ const Dashboard = () => {
         localStorage.setItem('localCompleted', 0);
         const nextWeek = (prev.currentWeekNumber || 1) + 1;
         localStorage.setItem('localWeek', nextWeek);
-        return { ...prev, completedWorkouts: 0, currentWeekNumber: nextWeek };
+        return {
+          ...prev,
+          completedWorkouts: 0,
+          currentWeekNumber: nextWeek
+        };
       });
     }
   };
@@ -95,17 +107,24 @@ const Dashboard = () => {
   const handleMarkComplete = async () => {
     try {
       const safeUserId = encodeURIComponent(userId);
-      const response = await fetch(`http://localhost:5001/api/workouts/${safeUserId}/progress`, { 
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/workouts/${safeUserId}/progress`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' }
       });
+
       if (response.ok) {
         const data = await response.json();
         setWorkoutData(prev => {
           localStorage.setItem('localCompleted', data.completedWorkouts);
           if (data.totalWorkouts !== undefined) localStorage.setItem('localTotal', data.totalWorkouts);
           if (data.currentStreak !== undefined) localStorage.setItem('localStreak', data.currentStreak);
-          return { ...prev, completedWorkouts: data.completedWorkouts, totalWorkouts: data.totalWorkouts !== undefined ? data.totalWorkouts : prev.totalWorkouts, currentStreak: data.currentStreak !== undefined ? data.currentStreak : prev.currentStreak };
+
+          return {
+            ...prev,
+            completedWorkouts: data.completedWorkouts,
+            totalWorkouts: data.totalWorkouts !== undefined ? data.totalWorkouts : prev.totalWorkouts,
+            currentStreak: data.currentStreak !== undefined ? data.currentStreak : prev.currentStreak
+          };
         });
       }
     } catch (error) {
@@ -113,10 +132,17 @@ const Dashboard = () => {
         const newCount = prev.completedWorkouts < prev.weeklyGoal ? prev.completedWorkouts + 1 : prev.completedWorkouts;
         const newTotal = (prev.totalWorkouts || 0) + 1;
         const newStreak = (prev.currentStreak || 0) + 1;
+
         localStorage.setItem('localCompleted', newCount);
         localStorage.setItem('localTotal', newTotal);
         localStorage.setItem('localStreak', newStreak);
-        return { ...prev, completedWorkouts: newCount, totalWorkouts: newTotal, currentStreak: newStreak };
+
+        return {
+          ...prev,
+          completedWorkouts: newCount,
+          totalWorkouts: newTotal,
+          currentStreak: newStreak
+        };
       });
     }
   };
@@ -125,33 +151,55 @@ const Dashboard = () => {
     <div className="min-h-screen relative pb-12 text-white bg-black">
       <div 
         className="fixed inset-0 bg-cover bg-center opacity-20 pointer-events-none"
-        style={{ backgroundImage: isFemale ? "url('https://images.unsplash.com/photo-1518611012118-696072aa579a?q=80&w=1470&auto=format&fit=crop')" : "url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop')" }}
+        style={{
+          backgroundImage: isFemale
+            ? "url('https://images.unsplash.com/photo-1518611012118-696072aa579a?q=80&w=1470&auto=format&fit=crop')"
+            : "url('https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop')"
+        }}
       ></div>
+
       <div className="fixed inset-0 bg-gradient-to-b from-black/40 via-black/80 to-black pointer-events-none"></div>
+
       <div className="relative z-10">
         <Navbar />
+
         <div className="max-w-6xl mx-auto pt-10 px-4">
           <div className="flex flex-col lg:flex-row justify-between items-start gap-6 mb-8">
             <div className="text-center lg:text-left w-full lg:w-auto">
-              <h1 className="text-4xl font-extrabold text-white capitalize drop-shadow-lg">Week {workoutData?.currentWeekNumber || 1} - <span className={themeText}>{userName}'s</span> Plan</h1>
-              <p className="text-gray-300 mt-2 text-lg font-medium drop-shadow-md">Welcome to Week {workoutData?.currentWeekNumber || 1} of your 52-Week Journey.</p>
+              <h1 className="text-4xl font-extrabold text-white capitalize drop-shadow-lg">
+                Week {workoutData?.currentWeekNumber || 1} - <span className={themeText}>{userName}'s</span> Plan
+              </h1>
+
+              <p className="text-gray-300 mt-2 text-lg font-medium drop-shadow-md">
+                Welcome to Week {workoutData?.currentWeekNumber || 1} of your 52-Week Journey.
+              </p>
             </div>
+
             {workoutData && (
               <div className="w-full lg:w-96 relative z-20">
-                <ProgressTracker completedWorkouts={workoutData.completedWorkouts} weeklyGoal={workoutData.weeklyGoal} onMarkComplete={handleMarkComplete} onResetWeek={handleResetWeek} />
+                <ProgressTracker
+                  completedWorkouts={workoutData.completedWorkouts}
+                  weeklyGoal={workoutData.weeklyGoal}
+                  onMarkComplete={handleMarkComplete}
+                  onResetWeek={handleResetWeek}
+                />
               </div>
             )}
           </div>
+
           {workoutData ? (
             <div className="w-full flex justify-center">
               <WorkoutList schedule={workoutData.weeklySchedule} />
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-20 text-xl font-semibold animate-pulse">Loading your workout plan...</p>
+            <p className="text-gray-500 text-center py-20 text-xl font-semibold animate-pulse">
+              Loading your workout plan...
+            </p>
           )}
         </div>
       </div>
     </div>
   );
 };
+
 export default Dashboard;
